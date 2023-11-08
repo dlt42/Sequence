@@ -1,5 +1,9 @@
 import { SequenceProcessor } from "./SequenceProcessor";
-import { SequenceDefinition } from "./SequenceTypes";
+import {
+  HandlerFunction,
+  HandlerFunctions,
+  SequenceDefinition,
+} from "./SequenceTypes";
 
 export type SequenceDataInput2 = {
   a: string;
@@ -35,6 +39,14 @@ const operations2 = {
   },
 };
 
+const convertHandlerFunction: HandlerFunction<
+  SequenceDataInput2,
+  SequenceDataOutput2,
+  `convertA`
+> = async ({ input, output }) => {
+  return Promise.resolve(operations2.convert(input.a, output.convertA));
+};
+
 const definition1: SequenceDefinition<
   SequenceDataInput2,
   SequenceDataOutput2,
@@ -43,14 +55,7 @@ const definition1: SequenceDefinition<
   name: `Convert, add and calculate root`,
   order: [`convertA`, `processB`],
   steps: {
-    convertA: [
-      async ({ input, output }) => {
-        return Promise.resolve(operations2.convert(input.a, output.convertA));
-      },
-      async ({ input, output }) => {
-        return Promise.resolve(operations2.convert(input.a, output.convertA));
-      },
-    ],
+    convertA: [convertHandlerFunction, convertHandlerFunction],
     processB: [
       async ({ output }) =>
         Promise.resolve(operations2.evaluate(output.convertA)),
