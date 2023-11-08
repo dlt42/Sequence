@@ -22,10 +22,9 @@ export class SequenceProcessorSimple<S, T extends (keyof S)[]> {
             };
           } catch (error) {
             throw new SequenceError({
-              stepName,
+              stepKey,
               state,
-              error:
-                error instanceof Error ? error.message : `Unknown error`,
+              error: error instanceof Error ? error.message : `Unknown error`,
             });
           }
         },

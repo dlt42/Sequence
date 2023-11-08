@@ -3,6 +3,8 @@ import { SequenceError } from "./SequenceError";
 import {
   HandlerFunction,
   SequenceProcessorConstructorArgs,
+  EvaluationOptions,
+  SequenceDefinition,
 } from "./SequenceTypes";
 import { SequenceLogger, StepLogger } from "./SequenceLogger";
 
@@ -13,8 +15,8 @@ import { SequenceLogger, StepLogger } from "./SequenceLogger";
  * @template T An array of keys of S
  */
 export class SequenceProcessor<S, T extends (keyof S)[]> {
-  readonly defintion;
-  readonly options;
+  readonly defintion: SequenceDefinition<S, T>;
+  readonly options: EvaluationOptions;
   readonly logger;
 
   /**
@@ -25,7 +27,7 @@ export class SequenceProcessor<S, T extends (keyof S)[]> {
     this.defintion = definition;
     this.options = options ?? {
       loggingEnabled: true,
-      onStepError: `Throw`,
+      onStepError: `ThrowException`,
       whenNotNull: `Reevaluate`,
       whenNotNullSFA: `Return`,
     };
@@ -36,7 +38,9 @@ export class SequenceProcessor<S, T extends (keyof S)[]> {
   }
 
   private getStepOptions = ({ stepKey }: { stepKey: keyof S }) => {
-    const { stepOptions } = this.defintion.steps[stepKey];
+    const stepOptions = this.defintion.stepOptions
+      ? this.defintion.stepOptions[stepKey]
+      : null;
     return stepOptions || this.options;
   };
 
@@ -46,74 +50,67 @@ export class SequenceProcessor<S, T extends (keyof S)[]> {
     stepKey,
     stepLogger,
   }: {
-    handlerFunction:
-      | HandlerFunction<S, keyof S>
-      | HandlerFunction<S, keyof S>[];
+    handlerFunction: HandlerFunction<S, keyof S>[];
     state: Readonly<S>;
     stepKey: keyof S;
     stepLogger: StepLogger<S>;
   }) => {
     const { whenNotNullSFA } = this.getStepOptions({ stepKey });
-    if (Array.isArray(handlerFunction)) {
-      stepLogger.log({
-        action: `Evaluating multiple functions for step:`,
-        state,
-      });
+    stepLogger.log({
+      action: `Evaluating functions for step:`,
+      state,
+    });
 
-      return handlerFunction.reduce(
-        async (value, currentHandlerFunction, index) => {
-          const logDetail = `step function ${index + 1}`;
-          const awaitedValue = await value;
-          const evaluationState = {
-            ...state,
-            [stepKey]: awaitedValue,
-          };
+    return handlerFunction.reduce(
+      async (value, currentHandlerFunction, index) => {
+        const logDetail = `step function ${index + 1}`;
+        const awaitedValue = await value;
+        const evaluationState = {
+          ...state,
+          [stepKey]: awaitedValue,
+        };
 
-          stepLogger.log({
-            action: `Evaluating ${logDetail}} for step:`,
-            state: evaluationState,
-          });
+        stepLogger.log({
+          action: `Evaluating ${logDetail}} for step:`,
+          state: evaluationState,
+        });
 
-          if (awaitedValue !== null) {
-            switch (whenNotNullSFA) {
-              case `Return`:
-                stepLogger.log({
-                  action: `Evaluation of ${logDetail}} skipped for step:`,
-                  state,
-                });
-                return awaitedValue;
+        if (!!awaitedValue) {
+          switch (whenNotNullSFA) {
+            case `Return`:
+              stepLogger.log({
+                action: `Evaluation of ${logDetail}} skipped for step:`,
+                state,
+              });
+              return awaitedValue;
 
-              case `EvaluateAll`:
-              default:
-                stepLogger.log({
-                  action: `Evaluation of ${logDetail} proceeding for step:`,
-                  state,
-                });
-                break;
-            }
+            case `EvaluateAll`:
+            default:
+              stepLogger.log({
+                action: `Evaluation of ${logDetail} proceeding for step:`,
+                state,
+              });
+              break;
           }
+        }
 
-          const result = await currentHandlerFunction({
-            ...evaluationState,
-            [stepKey]: awaitedValue,
-          });
+        const result = await currentHandlerFunction({
+          ...evaluationState,
+          [stepKey]: awaitedValue,
+        });
 
-          stepLogger.log({
-            action: `Evaluated ${logDetail}} for step:`,
-            state: {
-              ...state,
-              [stepKey]: result,
-            },
-          });
+        stepLogger.log({
+          action: `Evaluated ${logDetail}} for step:`,
+          state: {
+            ...state,
+            [stepKey]: result,
+          },
+        });
 
-          return result;
-        },
-        Promise.resolve(state[stepKey]) as Promise<S[keyof S]>
-      );
-    } else {
-      stepLogger.log({ action: `Evaluating single function for step:`, state });
-      return handlerFunction(state);
-    }
+        return result;
+      },
+      Promise.resolve(state[stepKey]) as Promise<S[keyof S]>
+    );
   };
 
   private evaluateState = async ({
@@ -124,7 +121,14 @@ export class SequenceProcessor<S, T extends (keyof S)[]> {
     stepKey: keyof S;
   }) => {
     const stepLogger = new StepLogger({ stepKey, logger: this.logger });
-    const { stepName, handlerFunction } = this.defintion.steps[stepKey];
+    const step = this.defintion.steps[stepKey];
+
+    const handlerFunction = step;
+    /*
+     * typeof step === `object` && !Array.isArray(step) && step !== null
+     *   ? step.handlerFunction
+     *  :
+     */
     const { whenNotNull, onStepError } = this.getStepOptions({ stepKey });
     try {
       stepLogger.log({ action: `Evaluating step:`, state });
@@ -168,11 +172,11 @@ export class SequenceProcessor<S, T extends (keyof S)[]> {
           stepLogger.log({ action: `Evaluation of Step aborted:`, state });
           return state;
 
-        case `Throw`:
+        case `ThrowException`:
         default:
           stepLogger.log({ action: `Evaluation of Step failed:`, state });
           throw new SequenceError({
-            stepName,
+            stepKey,
             state,
             error: error instanceof Error ? error.message : `Unknown error`,
           });
