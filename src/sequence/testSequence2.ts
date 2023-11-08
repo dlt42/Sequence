@@ -2,6 +2,7 @@ import { SequenceProcessor } from "./SequenceProcessor";
 import {
   HandlerFunction,
   HandlerFunctions,
+  KeysArray,
   SequenceDefinition,
 } from "./SequenceTypes";
 
@@ -47,13 +48,15 @@ const convertHandlerFunction: HandlerFunction<
   return Promise.resolve(operations2.convert(input.a, output.convertA));
 };
 
+const keys: KeysArray<SequenceDataOutput2> = [`convertA`, `processB`];
+
 const definition1: SequenceDefinition<
   SequenceDataInput2,
   SequenceDataOutput2,
-  [`convertA`, `processB`]
+  typeof keys
 > = {
   name: `Convert, add and calculate root`,
-  order: [`convertA`, `processB`],
+  order: keys,
   steps: {
     convertA: [convertHandlerFunction, convertHandlerFunction],
     processB: [

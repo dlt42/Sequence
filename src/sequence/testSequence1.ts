@@ -1,5 +1,5 @@
 import { SequenceProcessor } from "./SequenceProcessor";
-import { SequenceDefinition } from "./SequenceTypes";
+import { KeysArray, SequenceDefinition } from "./SequenceTypes";
 
 export type SequenceDataInput1 = {
   a: string;
@@ -34,13 +34,21 @@ const operations1 = {
   },
 };
 
+const keys: KeysArray<SequenceDataOutput1> = [
+  `convertA`,
+  `convertB`,
+  `squareA`,
+  `squareB`,
+  `evaluateC`,
+];
+
 const definition1: SequenceDefinition<
   SequenceDataInput1,
   SequenceDataOutput1,
-  [`convertA`, `convertB`, `squareA`, `squareB`, `evaluateC`]
+  typeof keys
 > = {
   name: `Convert, add and calculate root`,
-  order: [`convertA`, `convertB`, `squareA`, `squareB`, `evaluateC`],
+  order: keys,
   steps: {
     convertA: [
       async ({ input }) => Promise.resolve(operations1.convert(input.a)),

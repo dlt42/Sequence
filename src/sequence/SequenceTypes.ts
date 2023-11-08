@@ -4,7 +4,7 @@ import { SequenceLogger } from "./SequenceLogger";
 
 type Key<TYPE> = keyof TYPE;
 
-type KeysArray<TYPE> = Key<TYPE>[];
+export type KeysArray<TYPE> = Key<TYPE>[];
 
 export type SequenceProcessorConstructorArgs<
   INPUT,
