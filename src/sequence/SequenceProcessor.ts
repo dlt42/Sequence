@@ -11,22 +11,23 @@ import { SequenceLogger, StepLogger } from "./SequenceLogger";
 /**
  * SequenceProcessor
  *
- * @template S Any object type
- * @template T An array of keys of S
+ * @template INPUT Any object type
+ * @template OUTPUT Any object type
+ * @template KEYS An array of keys of S
  */
-export class SequenceProcessor<I, O, T extends (keyof O)[]> {
-  readonly defintion: SequenceDefinition<I, O, T>;
+export class SequenceProcessor<INPUT, OUTPUT, KEYS extends (keyof OUTPUT)[]> {
+  readonly defintion: SequenceDefinition<INPUT, OUTPUT, KEYS>;
   readonly options: EvaluationOptions;
   readonly logger;
 
   /**
    *
-   * @param param0
+   * @param sequenceProcessorArgs SequenceProcessorConstructorArgs
    */
   constructor({
     definition,
     options,
-  }: SequenceProcessorConstructorArgs<I, O, T>) {
+  }: SequenceProcessorConstructorArgs<INPUT, OUTPUT, KEYS>) {
     this.defintion = definition;
     this.options = options ?? {
       loggingEnabled: true,
@@ -40,7 +41,7 @@ export class SequenceProcessor<I, O, T extends (keyof O)[]> {
     });
   }
 
-  private getStepOptions = ({ stepKey }: { stepKey: keyof O }) => {
+  private getStepOptions = ({ stepKey }: { stepKey: keyof OUTPUT }) => {
     const stepOptions = this.defintion.stepOptions
       ? this.defintion.stepOptions[stepKey]
       : null;
@@ -54,11 +55,11 @@ export class SequenceProcessor<I, O, T extends (keyof O)[]> {
     stepKey,
     stepLogger,
   }: {
-    handlerFunctions: HandlerFunction<I, O, keyof O>[];
-    input: Readonly<I>;
-    state: Readonly<O>;
-    stepKey: keyof O;
-    stepLogger: StepLogger<I, O>;
+    handlerFunctions: HandlerFunction<INPUT, OUTPUT, keyof OUTPUT>[];
+    input: Readonly<INPUT>;
+    state: Readonly<OUTPUT>;
+    stepKey: keyof OUTPUT;
+    stepLogger: StepLogger<INPUT, OUTPUT>;
   }) => {
     const { whenNotNullSFA } = this.getStepOptions({ stepKey });
     stepLogger.log({
@@ -120,7 +121,7 @@ export class SequenceProcessor<I, O, T extends (keyof O)[]> {
 
         return result;
       },
-      Promise.resolve(state[stepKey]) as Promise<O[keyof O]>
+      Promise.resolve(state[stepKey]) as Promise<OUTPUT[keyof OUTPUT]>
     );
   };
 
@@ -129,18 +130,12 @@ export class SequenceProcessor<I, O, T extends (keyof O)[]> {
     state,
     stepKey,
   }: {
-    input: I;
-    state: Readonly<O>;
-    stepKey: keyof O;
+    input: INPUT;
+    state: Readonly<OUTPUT>;
+    stepKey: keyof OUTPUT;
   }) => {
     const stepLogger = new StepLogger({ stepKey, logger: this.logger });
     const handlerFunctions = this.defintion.steps[stepKey];
-
-    /*
-     * typeof step === `object` && !Array.isArray(step) && step !== null
-     *   ? step.handlerFunction
-     *  :
-     */
     const { whenNotNull, onStepError } = this.getStepOptions({ stepKey });
     try {
       stepLogger.log({ action: `Evaluating step:`, state, input });
@@ -225,9 +220,9 @@ export class SequenceProcessor<I, O, T extends (keyof O)[]> {
    * @returns
    */
   evaluate = async (
-    initialState: Readonly<O>,
-    input: I
-  ): Promise<Result<O, SequenceError<I, O>>> => {
+    initialState: Readonly<OUTPUT>,
+    input: INPUT
+  ): Promise<Result<OUTPUT, SequenceError<INPUT, OUTPUT>>> => {
     const { name: sequenceName, steps, order } = this.defintion;
     try {
       this.logger.log({
@@ -244,7 +239,7 @@ export class SequenceProcessor<I, O, T extends (keyof O)[]> {
             input,
           });
         },
-        Promise.resolve(initialState) as Promise<O>
+        Promise.resolve(initialState) as Promise<OUTPUT>
       );
 
       this.logger.log({
@@ -256,9 +251,9 @@ export class SequenceProcessor<I, O, T extends (keyof O)[]> {
     } catch (error) {
       this.logger.logError({
         action: `Evaluation error:`,
-        error: error as SequenceError<I, O>,
+        error: error as SequenceError<INPUT, OUTPUT>,
       });
-      return Result.err(error as SequenceError<I, O>);
+      return Result.err(error as SequenceError<INPUT, OUTPUT>);
     }
   };
 }

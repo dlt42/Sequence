@@ -5,10 +5,10 @@ import { SequenceErrorDetails } from "./SequenceTypes";
  *
  * @template I
  */
-export class SequenceError<I, O> extends Error {
-  readonly details: SequenceErrorDetails<I, O>;
+export class SequenceError<INPUT, OUTPUT> extends Error {
+  readonly details: SequenceErrorDetails<INPUT, OUTPUT>;
 
-  constructor(details: SequenceErrorDetails<I, O>) {
+  constructor(details: SequenceErrorDetails<INPUT, OUTPUT>) {
     super(`Error in step: ${String(details.stepKey)}`);
     this.details = details;
     this.name = `SequenceError`;

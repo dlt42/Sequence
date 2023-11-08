@@ -1,81 +1,17 @@
 import { describe, expect, test } from "vitest";
-import { SequenceProcessor } from "./SequenceProcessor";
-import { SequenceError } from "./SequenceError";
-import { SequenceDefinition } from "./SequenceTypes";
+import { sequence1 } from "./testSequence1";
+import { sequence2 } from "./testSequence2";
 
-export type SequenceDataInput = {
-  a: string;
-  b: string;
-};
-
-export type SequenceDataOutput = {
-  convertA?: number;
-  convertB?: number;
-  squareA?: number;
-  squareB?: number;
-  evaluateC?: number;
-};
-
-const convert = (input?: string) => {
-  if (!input || input.length === 0) {
-    throw Error(`No value to convert`);
-  }
-  const parsed = Number.parseInt(input ?? ``, 10);
-  if (Number.isNaN(parsed)) {
-    throw Error(`input is not a number`);
-  }
-  return parsed;
-};
-
-const square = (input?: number) => {
-  if (!input) {
-    throw Error(`No value to square`);
-  }
-  return input * input;
-};
-
-const definition: SequenceDefinition<
-  SequenceDataInput,
-  SequenceDataOutput,
-  [`convertA`, `convertB`, `squareA`, `squareB`, `evaluateC`]
-> = {
-  name: `Convert, add and calculate root`,
-  order: [`convertA`, `convertB`, `squareA`, `squareB`, `evaluateC`],
-  steps: {
-    convertA: [async (input) => Promise.resolve(convert(input.a))],
-    convertB: [async (input) => Promise.resolve(convert(input.b))],
-    squareA: [async (input) => Promise.resolve(square(input.convertA))],
-    squareB: [async (input) => Promise.resolve(square(input.convertB))],
-    evaluateC: [
-      async (input) => {
-        if (!input.squareA || !input.squareB) {
-          throw Error(`Cannot calculate root for C`);
-        }
-        return Promise.resolve(Math.sqrt(input.squareA + input.squareB));
-      },
-    ],
-  },
-};
-const sequence = new SequenceProcessor({
-  definition,
-  options: {
-    loggingEnabled: true,
-    onStepError: `ThrowException`,
-    whenNotNull: `Reevaluate`,
-    whenNotNullSFA: `Return`,
-  },
-});
-
-describe(`sequence`, () => {
+describe(`sequence1`, () => {
   test(`works - evaluates valid input`, async () => {
-    const result = await sequence.evaluate(
+    const result = await sequence1.evaluate(
       {},
       {
         a: `12`,
         b: `14`,
       }
     );
-    // expect(result.isErr).toBeFalsy();
+    expect(result.isErr).toBeFalsy();
     expect(result.isOk ? result.value : result.error).toEqual({
       convertA: 12,
       convertB: 14,
@@ -85,7 +21,7 @@ describe(`sequence`, () => {
     });
   });
   test(`works - errors for invalid input`, async () => {
-    const result = await sequence.evaluate(
+    const result = await sequence1.evaluate(
       {},
       {
         a: `twelve`,
@@ -104,7 +40,7 @@ describe(`sequence`, () => {
     });
   });
   test(`works - errors for no input`, async () => {
-    const result = await sequence.evaluate(
+    const result = await sequence1.evaluate(
       {},
       {
         a: ``,
@@ -121,6 +57,22 @@ describe(`sequence`, () => {
       },
       state: {},
       error: `No value to convert`,
+    });
+  });
+});
+
+describe(`sequence2`, () => {
+  test(`works - evaluates valid input`, async () => {
+    const result = await sequence2.evaluate(
+      {},
+      {
+        a: `3`,
+      }
+    );
+    expect(result.isErr).toBeFalsy();
+    expect(result.isOk ? result.value : result.error).toEqual({
+      convertA: 6,
+      processB: 106,
     });
   });
 });
