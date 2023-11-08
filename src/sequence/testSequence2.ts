@@ -44,15 +44,16 @@ const definition1: SequenceDefinition<
   order: [`convertA`, `processB`],
   steps: {
     convertA: [
-      async (state) => {
-        return Promise.resolve(operations2.convert(state.a, state.convertA));
+      async ({ input, output }) => {
+        return Promise.resolve(operations2.convert(input.a, output.convertA));
       },
-      async (state) => {
-        return Promise.resolve(operations2.convert(state.a, state.convertA));
+      async ({ input, output }) => {
+        return Promise.resolve(operations2.convert(input.a, output.convertA));
       },
     ],
     processB: [
-      async (input) => Promise.resolve(operations2.evaluate(input.convertA)),
+      async ({ output }) =>
+        Promise.resolve(operations2.evaluate(output.convertA)),
     ],
   },
   stepOptions: {

@@ -44,9 +44,13 @@ export type SequenceLogItem<INPUT, OUTPUT, T> = T extends
   ? T
   : never;
 
-export type HandlerFunction<INPUT, OUTPUT, KEY extends Key<OUTPUT>> = (
-  data: Partial<Readonly<OUTPUT>> & Readonly<INPUT>
-) => Promise<OUTPUT[KEY]>;
+export type HandlerFunction<INPUT, OUTPUT, KEY extends Key<OUTPUT>> = ({
+  input,
+  output,
+}: {
+  input: Readonly<INPUT>;
+  output: Partial<Readonly<OUTPUT>>;
+}) => Promise<OUTPUT[KEY]>;
 
 export type HandlerFunctions<
   INPUT,

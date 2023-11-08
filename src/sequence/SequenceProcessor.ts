@@ -105,9 +105,11 @@ export class SequenceProcessor<INPUT, OUTPUT, KEYS extends (keyof OUTPUT)[]> {
         }
 
         const result = await currentHandlerFunction({
-          ...input,
-          ...evaluationState,
-          [stepKey]: awaitedValue,
+          input,
+          output: {
+            ...evaluationState,
+            [stepKey]: awaitedValue,
+          }
         });
 
         stepLogger.log({
