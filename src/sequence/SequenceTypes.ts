@@ -6,8 +6,8 @@ type Key<S> = keyof S;
 
 type KeysArray<S> = Key<S>[];
 
-export type SequenceProcessorConstructorArgs<S, T extends KeysArray<S>> = {
-  definition: SequenceDefinition<S, T>;
+export type SequenceProcessorConstructorArgs<I, O, T extends KeysArray<O>> = {
+  definition: SequenceDefinition<I, O, T>;
   options: EvaluationOptions | null;
 };
 
@@ -16,9 +16,9 @@ export type SequenceLoggerConstructorArgs = {
   sequenceName: string;
 };
 
-export type StepLoggerConstructorArgs<S> = {
-  stepKey: Key<S>;
-  logger: SequenceLogger<S>;
+export type StepLoggerConstructorArgs<I, O> = {
+  stepKey: Key<O>;
+  logger: SequenceLogger<I, O>;
 };
 
 export type StepEvaluationOptions = {
@@ -31,48 +31,56 @@ export type EvaluationOptions = StepEvaluationOptions & {
   loggingEnabled: boolean;
 };
 
-export type SequenceLogItem<S, T> = T extends string | object | Error | S
+export type SequenceLogItem<I, O, T> = T extends string | object | Error | O | I
   ? T
   : never;
 
-export type HandlerFunction<S, PK extends Key<S>> = (
-  data: Partial<Readonly<S>>
-) => Promise<S[PK]>;
+export type HandlerFunction<I, O, PK extends Key<O>> = (
+  data: Partial<Readonly<O>> & Readonly<I>
+) => Promise<O[PK]>;
 
-export type HandlerFunctions<S, PK extends Key<S>> = HandlerFunction<S, PK>[];
+export type HandlerFunctions<I, O, PK extends Key<O>> = HandlerFunction<
+  I,
+  O,
+  PK
+>[];
 
-export type SequenceSteps<S, T extends KeysArray<S>> = {
-  [PK in keyof Required<Pick<S, T[number]>>]: HandlerFunctions<S, PK>;
+export type SequenceSteps<I, O, T extends KeysArray<O>> = {
+  [PK in keyof Required<Pick<O, T[number]>>]: HandlerFunctions<I, O, PK>;
 };
 
-export type StepOptions<S, T extends KeysArray<S>> = {
-  [PK in keyof Pick<S, T[number]>]: StepEvaluationOptions;
+export type StepOptions<O, T extends KeysArray<O>> = {
+  [PK in keyof Pick<O, T[number]>]: StepEvaluationOptions;
 };
 
-export type SequenceDefinition<S, T extends KeysArray<S>> = {
+export type SequenceDefinition<I, O, T extends KeysArray<O>> = {
   name: string;
   order: T;
-  steps: SequenceSteps<S, T>;
-  stepOptions?: StepOptions<S, T>;
+  steps: SequenceSteps<I, O, T>;
+  stepOptions?: StepOptions<O, T>;
 };
 
-export type SequenceDefinitionNew<S, T extends KeysArray<S>> = {
+export type SequenceDefinitionNew<I, O, T extends KeysArray<O>> = {
   name: string;
   steps: {
-    [PK in keyof Required<Pick<S, T[number]>>]: {
-      funcs: HandlerFunctions<S, PK>;
+    [PK in keyof Required<Pick<O, T[number]>>]: {
+      funcs: HandlerFunctions<I, O, PK>;
       options?: StepEvaluationOptions;
       index: number;
     };
   };
 };
 
-export type SequenceProcessor<S> = {
-  evaluate: (initialState: S) => Promise<Result<S, SequenceError<S>>>;
+export type SequenceProcessor<I, O> = {
+  evaluate: (
+    initialState: I,
+    input: O
+  ) => Promise<Result<O, SequenceError<I, O>>>;
 };
 
-export type SequenceErrorDetails<I> = {
+export type SequenceErrorDetails<I, O> = {
   stepKey: string | number | symbol;
   state: I;
+  input: O;
   error: string;
 };

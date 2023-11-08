@@ -3,9 +3,12 @@ import { SequenceProcessor } from "./SequenceProcessor";
 import { SequenceError } from "./SequenceError";
 import { SequenceDefinition } from "./SequenceTypes";
 
-export type SequenceData = {
+export type SequenceDataInput = {
   a: string;
   b: string;
+};
+
+export type SequenceDataOutput = {
   convertA?: number;
   convertB?: number;
   squareA?: number;
@@ -32,7 +35,8 @@ const square = (input?: number) => {
 };
 
 const definition: SequenceDefinition<
-  SequenceData,
+  SequenceDataInput,
+  SequenceDataOutput,
   [`convertA`, `convertB`, `squareA`, `squareB`, `evaluateC`]
 > = {
   name: `Convert, add and calculate root`,
@@ -64,14 +68,15 @@ const sequence = new SequenceProcessor({
 
 describe(`sequence`, () => {
   test(`works - evaluates valid input`, async () => {
-    const result = await sequence.evaluate({
-      a: `12`,
-      b: `14`,
-    });
+    const result = await sequence.evaluate(
+      {},
+      {
+        a: `12`,
+        b: `14`,
+      }
+    );
     // expect(result.isErr).toBeFalsy();
     expect(result.isOk ? result.value : result.error).toEqual({
-      a: `12`,
-      b: `14`,
       convertA: 12,
       convertB: 14,
       squareA: 144,
@@ -80,42 +85,42 @@ describe(`sequence`, () => {
     });
   });
   test(`works - errors for invalid input`, async () => {
-    const result = await sequence.evaluate({
-      a: `twelve`,
-      b: `14`,
-    });
-    expect(result.isErr).toBeTruthy();
-    expect(result.isErr ? result.error : null).toEqual(
-      new SequenceError({
-        stepKey: `convertA`,
-        state: {
-          a: `twelve`,
-          b: `14`,
-        },
-        error: `No value to convert`,
-      })
+    const result = await sequence.evaluate(
+      {},
+      {
+        a: `twelve`,
+        b: `14`,
+      }
     );
+    expect(result.isErr).toBeTruthy();
+    expect(result.isErr ? result.error.details : null).toEqual({
+      input: {
+        a: `twelve`,
+        b: `14`,
+      },
+      stepKey: `convertA`,
+      state: {},
+      error: `input is not a number`,
+    });
   });
   test(`works - errors for no input`, async () => {
-    const result = await sequence.evaluate({
-      a: ``,
-      b: `14`,
-    });
-    expect(result.isErr).toBeTruthy();
-    expect(result.isErr ? result.error : null).toEqual(
-      new SequenceError({
-        stepKey: `convertA`,
-        state: {
-          a: null,
-          b: `14`,
-          convertA: null,
-          convertB: null,
-          squareA: null,
-          squareB: null,
-          evaluateC: null,
-        },
-        error: `No value to convert`,
-      })
+    const result = await sequence.evaluate(
+      {},
+      {
+        a: ``,
+        b: `14`,
+      }
     );
+    expect(result.isErr).toBeTruthy();
+    console.log(JSON.stringify(result.isErr ? result.error : null));
+    expect(result.isErr ? result.error.details : null).toEqual({
+      stepKey: `convertA`,
+      input: {
+        a: ``,
+        b: `14`,
+      },
+      state: {},
+      error: `No value to convert`,
+    });
   });
 });

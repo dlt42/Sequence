@@ -4,14 +4,14 @@ import {
   SequenceLoggerConstructorArgs,
   SequenceLogItem,
   StepLoggerConstructorArgs,
-} from './SequenceTypes';
+} from "./SequenceTypes";
 
 /**
  * SequenceLogger
  *
  * @template S Any object type
  */
-export class SequenceLogger<S> {
+export class SequenceLogger<I, O> {
   readonly enabled: boolean;
   readonly sequenceName: string;
 
@@ -28,7 +28,9 @@ export class SequenceLogger<S> {
    *
    * @param lines
    */
-  logItems = <T extends SequenceLogItem<S, string | object | Error | S>>({
+  logItems = <
+    T extends SequenceLogItem<I, O, string | object | Error | I | O>
+  >({
     lines,
   }: {
     lines: T[];
@@ -56,8 +58,10 @@ export class SequenceLogger<S> {
    *
    * @param param0
    */
-  log = ({ action, state }: { action: string; state: S }) => {
-    this.logItems({ lines: [action, this.sequenceName, `State:`, state] });
+  log = ({ action, state, input }: { action: string; state: O; input: I }) => {
+    this.logItems({
+      lines: [action, this.sequenceName, `State:`, state, `Input:`, input],
+    });
   };
 
   /**
@@ -69,7 +73,7 @@ export class SequenceLogger<S> {
     error,
   }: {
     action: string;
-    error: SequenceError<S>;
+    error: SequenceError<I, O>;
   }) => {
     this.logItems({ lines: [action, this.sequenceName, `Error:`, error] });
   };
@@ -80,15 +84,15 @@ export class SequenceLogger<S> {
  *
  * @template S Any object type
  */
-export class StepLogger<S> {
-  stepKey: keyof S;
-  logger: SequenceLogger<S>;
+export class StepLogger<I, O> {
+  stepKey: keyof O;
+  logger: SequenceLogger<I, O>;
 
   /**
    *
    * @param param0
    */
-  constructor({ logger, stepKey }: StepLoggerConstructorArgs<S>) {
+  constructor({ logger, stepKey }: StepLoggerConstructorArgs<I, O>) {
     this.stepKey = stepKey;
     this.logger = logger;
   }
@@ -98,9 +102,9 @@ export class StepLogger<S> {
    * @param action
    * @param state
    */
-  log = ({ action, state }: { action: string; state: S }) => {
+  log = ({ action, state, input }: { action: string; state: O; input: I }) => {
     this.logger.logItems({
-      lines: [action, String(this.stepKey), `State:`, state],
+      lines: [action, String(this.stepKey), `State:`, state, `Input:`, input],
     });
   };
 }
