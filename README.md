@@ -2,11 +2,11 @@
 
 SequenceProcessor processes a SequenceDefinition to update the provided state.
 
-A SequenceDefinition is composed of a sequence of steps (functions) that are mapped to a state attribute.
+A SequenceDefinition is composed of a sequence of steps that are mapped to a state attribute.
 
 The SequenceProcessor evaluates each step in the order specified by the SequenceDefinition.
 
-Each step is composed of one or more step functions.
+Each step contains of one or more step functions.
 
 The result from the evaluation of each step function is assigned to the state attribute it is mapped to.
 

@@ -13,10 +13,9 @@ import { SequenceLogger, StepLogger } from "./SequenceLogger";
  *
  * @template INPUT Any object type
  * @template OUTPUT Any object type
- * @template KEYS An array of keys of S
  */
-export class SequenceProcessor<INPUT, OUTPUT, KEYS extends (keyof OUTPUT)[]> {
-  readonly defintion: SequenceDefinition<INPUT, OUTPUT, KEYS>;
+export class SequenceProcessor<INPUT, OUTPUT> {
+  readonly defintion: SequenceDefinition<INPUT, OUTPUT>;
   readonly options: EvaluationOptions;
   readonly logger;
 
@@ -27,7 +26,7 @@ export class SequenceProcessor<INPUT, OUTPUT, KEYS extends (keyof OUTPUT)[]> {
   constructor({
     definition,
     options,
-  }: SequenceProcessorConstructorArgs<INPUT, OUTPUT, KEYS>) {
+  }: SequenceProcessorConstructorArgs<INPUT, OUTPUT>) {
     this.defintion = definition;
     this.options = options ?? {
       loggingEnabled: true,
@@ -42,20 +41,20 @@ export class SequenceProcessor<INPUT, OUTPUT, KEYS extends (keyof OUTPUT)[]> {
   }
 
   private getStepOptions = ({ stepKey }: { stepKey: keyof OUTPUT }) => {
-    const stepOptions = this.defintion.stepOptions
-      ? this.defintion.stepOptions[stepKey]
+    const stepOptions = this.defintion.steps[stepKey]
+      ? this.defintion.steps[stepKey].options
       : null;
     return stepOptions || this.options;
   };
 
   private callHandlerFunction = async ({
-    handlerFunctions,
+    handlers,
     input,
     state,
     stepKey,
     stepLogger,
   }: {
-    handlerFunctions: HandlerFunction<INPUT, OUTPUT, keyof OUTPUT>[];
+    handlers: HandlerFunction<INPUT, OUTPUT, keyof OUTPUT>[];
     input: Readonly<INPUT>;
     state: Readonly<OUTPUT>;
     stepKey: keyof OUTPUT;
@@ -63,68 +62,65 @@ export class SequenceProcessor<INPUT, OUTPUT, KEYS extends (keyof OUTPUT)[]> {
   }) => {
     const { whenNotNullSFA } = this.getStepOptions({ stepKey });
     stepLogger.log({
-      action: `Evaluating functions for step:`,
+      action: `Evaluating ${handlers.length} functions for step:`,
       state,
       input,
     });
 
-    return handlerFunctions.reduce(
-      async (value, currentHandlerFunction, index) => {
-        const logDetail = `step function ${index + 1}`;
-        const awaitedValue = await value;
-        const evaluationState = {
-          ...state,
-          [stepKey]: awaitedValue,
-        };
+    return handlers.reduce(async (value, currentHandlerFunction, index) => {
+      const logDetail = `step function ${index + 1}`;
+      const awaitedValue = await value;
+      const evaluationState = {
+        ...state,
+        [stepKey]: awaitedValue,
+      };
 
-        stepLogger.log({
-          action: `Evaluating ${logDetail}} for step:`,
-          state: evaluationState,
-          input,
-        });
+      stepLogger.log({
+        action: `Evaluating ${logDetail}} for step:`,
+        state: evaluationState,
+        input,
+      });
 
-        if (!!awaitedValue) {
-          switch (whenNotNullSFA) {
-            case `Return`:
-              stepLogger.log({
-                action: `Evaluation of ${logDetail}} skipped for step:`,
-                state,
-                input,
-              });
-              return awaitedValue;
+      if (!!awaitedValue) {
+        switch (whenNotNullSFA) {
+          case `Return`:
+            stepLogger.log({
+              action: `Evaluation of ${logDetail}} skipped for step:`,
+              state,
+              input,
+            });
+            return awaitedValue;
 
-            case `EvaluateAll`:
-            default:
-              stepLogger.log({
-                action: `Evaluation of ${logDetail} proceeding for step:`,
-                state,
-                input,
-              });
-              break;
-          }
+          case `EvaluateAll`:
+          default:
+            stepLogger.log({
+              action: `Evaluation of ${logDetail} proceeding for step:`,
+              state,
+              input,
+            });
+            break;
         }
+      }
 
-        const result = await currentHandlerFunction({
-          input,
-          output: {
-            ...evaluationState,
-            [stepKey]: awaitedValue,
-          }
-        });
+      const result = await currentHandlerFunction({
+        input,
+        output: {
+          ...evaluationState,
+          [stepKey]: awaitedValue,
+        },
+      });
 
-        stepLogger.log({
-          action: `Evaluated ${logDetail}} for step:`,
-          state: {
-            ...state,
-            [stepKey]: result,
-          },
-          input,
-        });
+      stepLogger.log({
+        action: `Evaluated ${logDetail}} for step:`,
+        state: {
+          ...state,
+          [stepKey]: result,
+        },
+        input,
+      });
 
-        return result;
-      },
-      Promise.resolve(state[stepKey]) as Promise<OUTPUT[keyof OUTPUT]>
-    );
+      return result;
+    }, Promise.resolve(state[stepKey]) as Promise<OUTPUT[keyof OUTPUT]>);
   };
 
   private evaluateState = async ({
@@ -137,7 +133,7 @@ export class SequenceProcessor<INPUT, OUTPUT, KEYS extends (keyof OUTPUT)[]> {
     stepKey: keyof OUTPUT;
   }) => {
     const stepLogger = new StepLogger({ stepKey, logger: this.logger });
-    const handlerFunctions = this.defintion.steps[stepKey];
+    const { handlers } = this.defintion.steps[stepKey];
     const { whenNotNull, onStepError } = this.getStepOptions({ stepKey });
     try {
       stepLogger.log({ action: `Evaluating step:`, state, input });
@@ -175,7 +171,7 @@ export class SequenceProcessor<INPUT, OUTPUT, KEYS extends (keyof OUTPUT)[]> {
         ...state,
         [stepKey]: await this.callHandlerFunction({
           input,
-          handlerFunctions,
+          handlers,
           state,
           stepKey,
           stepLogger,
@@ -225,10 +221,14 @@ export class SequenceProcessor<INPUT, OUTPUT, KEYS extends (keyof OUTPUT)[]> {
     initialState: Readonly<OUTPUT>,
     input: INPUT
   ): Promise<Result<OUTPUT, SequenceError<INPUT, OUTPUT>>> => {
-    const { name: sequenceName, steps, order } = this.defintion;
+    const { name: sequenceName, steps } = this.defintion;
+
+    const order = (Object.keys(steps) as (keyof OUTPUT)[]).sort((a, b) => {
+      return steps[a].index > steps[b].index ? 1 : -1;
+    });
     try {
       this.logger.log({
-        action: `Evaluating Sequence:`,
+        action: `Evaluating Sequence ${order}:`,
         state: initialState,
         input,
       });
@@ -237,7 +237,7 @@ export class SequenceProcessor<INPUT, OUTPUT, KEYS extends (keyof OUTPUT)[]> {
         async (resultState, stepKey) => {
           return this.evaluateState({
             state: await resultState,
-            stepKey,
+            stepKey: stepKey,
             input,
           });
         },

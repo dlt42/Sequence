@@ -1,5 +1,5 @@
 import { SequenceProcessor } from "./SequenceProcessor";
-import { KeysArray, SequenceDefinition } from "./SequenceTypes";
+import { SequenceDefinition } from "./SequenceTypes";
 
 export type SequenceDataInput1 = {
   a: string;
@@ -33,47 +33,50 @@ const operations1 = {
     return input * input;
   },
 };
-
-const keys: KeysArray<SequenceDataOutput1> = [
-  `convertA`,
-  `convertB`,
-  `squareA`,
-  `squareB`,
-  `evaluateC`,
-];
-
-const definition1: SequenceDefinition<
-  SequenceDataInput1,
-  SequenceDataOutput1,
-  typeof keys
-> = {
-  name: `Convert, add and calculate root`,
-  order: keys,
-  steps: {
-    convertA: [
-      async ({ input }) => Promise.resolve(operations1.convert(input.a)),
-    ],
-    convertB: [
-      async ({ input }) => Promise.resolve(operations1.convert(input.b)),
-    ],
-    squareA: [
-      async ({ output }) =>
-        Promise.resolve(operations1.square(output.convertA)),
-    ],
-    squareB: [
-      async ({ output }) =>
-        Promise.resolve(operations1.square(output.convertB)),
-    ],
-    evaluateC: [
-      async ({ output }) => {
-        if (!output.squareA || !output.squareB) {
-          throw Error(`Cannot calculate root for C`);
-        }
-        return Promise.resolve(Math.sqrt(output.squareA + output.squareB));
+const definition1: SequenceDefinition<SequenceDataInput1, SequenceDataOutput1> =
+  {
+    name: `Convert, add and calculate root`,
+    steps: {
+      convertA: {
+        handlers: [
+          async ({ input }) => Promise.resolve(operations1.convert(input.a)),
+        ],
+        index: 0,
       },
-    ],
-  },
-};
+      convertB: {
+        handlers: [
+          async ({ input, output }) =>
+            Promise.resolve(operations1.convert(input.b)),
+        ],
+        index: 1,
+      },
+      squareA: {
+        handlers: [
+          async ({ output }) =>
+            Promise.resolve(operations1.square(output.convertA)),
+        ],
+        index: 2,
+      },
+      squareB: {
+        handlers: [
+          async ({ output }) =>
+            Promise.resolve(operations1.square(output.convertB)),
+        ],
+        index: 3,
+      },
+      evaluateC: {
+        handlers: [
+          async ({ output }) => {
+            if (!output.squareA || !output.squareB) {
+              throw Error(`Cannot calculate root for C`);
+            }
+            return Promise.resolve(Math.sqrt(output.squareA + output.squareB));
+          },
+        ],
+        index: 4,
+      },
+    },
+  };
 
 export const sequence1 = new SequenceProcessor({
   definition: definition1,

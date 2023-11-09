@@ -1,10 +1,5 @@
 import { SequenceProcessor } from "./SequenceProcessor";
-import {
-  HandlerFunction,
-  HandlerFunctions,
-  KeysArray,
-  SequenceDefinition,
-} from "./SequenceTypes";
+import { HandlerFunction, SequenceDefinition } from "./SequenceTypes";
 
 export type SequenceDataInput2 = {
   a: string;
@@ -48,30 +43,28 @@ const convertHandlerFunction: HandlerFunction<
   return Promise.resolve(operations2.convert(input.a, output.convertA));
 };
 
-const keys: KeysArray<SequenceDataOutput2> = [`convertA`, `processB`];
-
-const definition1: SequenceDefinition<
-  SequenceDataInput2,
-  SequenceDataOutput2,
-  typeof keys
-> = {
-  name: `Convert, add and calculate root`,
-  order: keys,
-  steps: {
-    convertA: [convertHandlerFunction, convertHandlerFunction],
-    processB: [
-      async ({ output }) =>
-        Promise.resolve(operations2.evaluate(output.convertA)),
-    ],
-  },
-  stepOptions: {
-    convertA: {
-      whenNotNullSFA: `EvaluateAll`,
-      onStepError: `ThrowException`,
-      whenNotNull: `Reevaluate`,
+const definition1: SequenceDefinition<SequenceDataInput2, SequenceDataOutput2> =
+  {
+    name: `Convert, add and calculate root`,
+    steps: {
+      convertA: {
+        handlers: [convertHandlerFunction, convertHandlerFunction],
+        index: 0,
+        options: {
+          whenNotNullSFA: `EvaluateAll`,
+          onStepError: `ThrowException`,
+          whenNotNull: `Reevaluate`,
+        },
+      },
+      processB: {
+        handlers: [
+          async ({ output }) =>
+            Promise.resolve(operations2.evaluate(output.convertA)),
+        ],
+        index: 1,
+      },
     },
-  },
-};
+  };
 
 export const sequence2 = new SequenceProcessor({
   definition: definition1,
